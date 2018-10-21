@@ -1,2 +1,4 @@
 *.o
+libkohnz.so
+parse_gz
 
