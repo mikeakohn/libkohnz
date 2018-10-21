@@ -41,7 +41,7 @@ int kohnz_crc32_init()
   return 0;
 }
 
-uint32_t kohnz_crc32(uint8_t *buffer, int len, uint32_t crc)
+uint32_t kohnz_crc32(const uint8_t *buffer, int len, uint32_t crc)
 {
   int n;
 

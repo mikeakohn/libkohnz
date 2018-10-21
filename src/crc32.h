@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 int kohnz_crc32_init();
-uint32_t kohnz_crc32(uint8_t *buffer, int len, uint32_t crc);
+uint32_t kohnz_crc32(const uint8_t *buffer, int len, uint32_t crc);
 
 #endif
 

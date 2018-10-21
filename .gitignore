@@ -1,4 +1,6 @@
 *.o
 libkohnz.so
 parse_gz
+sample/sample
+sample/sample.gz
 
