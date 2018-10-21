@@ -50,6 +50,6 @@ uint32_t kohnz_crc32(const uint8_t *buffer, int len, uint32_t crc)
     crc = crc_table[(crc ^ buffer[n]) & 0xff] ^ (crc >> 8);
   }
 
-  return crc;
+  return crc ^ 0xffffffff;
 }
 

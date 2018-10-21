@@ -20,8 +20,8 @@ static int write16(FILE *out, uint32_t num)
 {
   uint8_t data[2];
 
-  data[0] = num >> 8;
-  data[1] = num;
+  data[0] = num;
+  data[1] = num >> 8;
 
   fwrite(data, sizeof(data), 1, out);
 
@@ -32,10 +32,10 @@ static int write32(FILE *out, uint32_t num)
 {
   uint8_t data[4];
 
-  data[0] = num >> 24;
-  data[1] = num >> 16;
-  data[2] = num >> 8;
-  data[3] = num;
+  data[0] = num;
+  data[1] = num >> 8;
+  data[2] = num >> 16;
+  data[3] = num >> 24;
 
   fwrite(data, sizeof(data), 1, out);
 
@@ -56,6 +56,8 @@ struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *f
   if (kohnz == NULL) { return NULL; }
 
   memset(kohnz, 0, sizeof(struct _kohnz));
+
+  kohnz->crc32 = 0xffffffff;
 
   kohnz->out = fopen(filename, "wb");
 
@@ -110,7 +112,7 @@ int kohnz_close(struct _kohnz *kohnz)
 
 int kohnz_write_00(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
-  putc(4, kohnz->out);
+  putc(1, kohnz->out);
   write16(kohnz->out, length);
   write16(kohnz->out, length ^ 0xffff);
   fwrite(data, 1, length, kohnz->out);

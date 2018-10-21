@@ -22,7 +22,7 @@ static uint16_t read_int16(FILE *in)
   uint32_t n;
 
   n = getc(in);
-  n = getc(in) << 8;
+  n |= getc(in) << 8;
 
   return n;
 }
@@ -33,9 +33,9 @@ static uint16_t read_int32(FILE *in)
   uint32_t n;
 
   n = getc(in);
-  n = getc(in) << 8;
-  n = getc(in) << 16;
-  n = getc(in) << 24;
+  n |= getc(in) << 8;
+  n |= getc(in) << 16;
+  n |= getc(in) << 24;
 
   return n;
 }
