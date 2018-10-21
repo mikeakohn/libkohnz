@@ -138,6 +138,10 @@ int main(int argc, char *argv[])
     {
       printf("Error: Not a gzip file\n");
     }
+
+    uint8_t byte = getc(in);
+
+    printf("byte=%02x\n", byte);
   }
   while(0);
 

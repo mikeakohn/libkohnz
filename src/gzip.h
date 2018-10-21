@@ -9,8 +9,8 @@
  *
  */
 
-#ifndef _GZIP
-#define _GZIP
+#ifndef _GZIP_H
+#define _GZIP_H
 
 struct _gzip_header
 {
