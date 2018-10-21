@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 
   kohnz_init();
 
-  kohnz = kohnz_open("sample.gz");
+  kohnz = kohnz_open("mikemike.txt.gz", "mikemike.txt", NULL);
 
   if (kohnz == NULL)
   {

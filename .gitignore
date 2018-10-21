@@ -2,5 +2,6 @@
 libkohnz.so
 parse_gz
 sample/sample
-sample/sample.gz
+sample/mikemike.txt.gz
+sample/mikemike.txt
 

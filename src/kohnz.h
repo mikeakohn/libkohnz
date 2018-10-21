@@ -30,7 +30,7 @@ struct _kohnz
 };
 
 void kohnz_init();
-struct _kohnz *kohnz_open(const char *filename);
+struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *fcomment);
 int kohnz_close(struct _kohnz *kohnz);
 int kohnz_write_00(struct _kohnz *kohnz, const uint8_t *data, int length);
 

@@ -4,6 +4,6 @@ default:
 
 clean:
 	@rm -f build/*.o parse_gz
-	@rm -f sample/sample sample/sample.gz
+	@rm -f sample/sample mikemike.txt mikemike.txt.gz
 	@echo "Clean!"
 

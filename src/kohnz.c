@@ -47,7 +47,7 @@ void kohnz_init()
   kohnz_crc32_init();
 }
 
-struct _kohnz *kohnz_open(const char *filename)
+struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *fcomment)
 {
   struct _kohnz *kohnz;
 
@@ -63,6 +63,34 @@ struct _kohnz *kohnz_open(const char *filename)
   {
     free(kohnz);
     return NULL;
+  }
+
+  uint8_t flags = 0;
+
+  if (fname != NULL && fname[0] != 0) { flags |= 0x08; }
+  if (fcomment != NULL && fcomment[0] != 0) { flags |= 0x10; }
+
+  // Magic number
+  putc(0x1f, kohnz->out);
+  putc(0x8b, kohnz->out);
+  // Compression method 8 (DEFLATE)
+  putc(0x08, kohnz->out);
+  putc(flags, kohnz->out);
+  // Timestamp
+  write32(kohnz->out, 0);
+  // Compression flags
+  putc(0x02, kohnz->out);
+  // Operating system (3 is Unix)
+  putc(0x03, kohnz->out);
+
+  if (fname != NULL && fname[0] != 0)
+  {
+    fwrite(fname, 1, strlen(fname) + 1, kohnz->out);
+  }
+
+  if (fcomment != NULL && fcomment[0] != 0)
+  {
+    fwrite(fcomment, 1, strlen(fcomment) + 1, kohnz->out);
   }
 
   return kohnz;
