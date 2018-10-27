@@ -110,9 +110,25 @@ int kohnz_close(struct _kohnz *kohnz)
   return 0;
 }
 
-int kohnz_write_00(struct _kohnz *kohnz, const uint8_t *data, int length)
+int kohnz_start_uncompressed_block(struct _kohnz *kohnz)
 {
   putc(1, kohnz->out);
+
+  return 0;
+}
+
+int kohnz_start_static_block(struct _kohnz *kohnz)
+{
+  return -1;
+}
+
+int kohnz_start_dynamic_block(struct _kohnz *kohnz)
+{
+  return -1;
+}
+
+int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int length)
+{
   write16(kohnz->out, length);
   write16(kohnz->out, length ^ 0xffff);
   fwrite(data, 1, length, kohnz->out);
@@ -121,5 +137,15 @@ int kohnz_write_00(struct _kohnz *kohnz, const uint8_t *data, int length)
   kohnz->file_size += length;
 
   return 0;
+}
+
+int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
+{
+  return -1;
+}
+
+int kohnz_write_dynamic(struct _kohnz *kohnz, const uint8_t *data, int length)
+{
+  return -1;
 }
 

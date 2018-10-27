@@ -1,7 +1,7 @@
 DEBUG=-DDEBUG -g
 CFLAGS=-Wall -O3 $(DEBUG)
 VPATH=../src
-OBJECTS=crc32.o
+OBJECTS=crc32.o deflate_codes.o
 
 default: $(OBJECTS)
 	$(CC) -o ../parse_gz ../src/parse_gz.c $(CFLAGS)
