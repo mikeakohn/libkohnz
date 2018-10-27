@@ -17,7 +17,8 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  kohnz_write_00(kohnz, (const uint8_t *)"MIKEMIKE", 8);
+  kohnz_start_uncompressed_block(kohnz);
+  kohnz_write_uncompressed(kohnz, (const uint8_t *)"MIKEMIKE", 8);
 
   kohnz_close(kohnz);
 

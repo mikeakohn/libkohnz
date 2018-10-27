@@ -37,7 +37,7 @@ int kohnz_start_static_block(struct _kohnz *kohnz);
 int kohnz_start_dynamic_block(struct _kohnz *kohnz);
 int kohnz_end_static_block(struct _kohnz *kohnz);
 int kohnz_end_dynamic_block(struct _kohnz *kohnz);
-int kohnz_write_00(struct _kohnz *kohnz, const uint8_t *data, int length);
+int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int length);
 int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length);
 
 #endif
