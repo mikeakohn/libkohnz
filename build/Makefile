@@ -4,7 +4,7 @@ VPATH=../src
 OBJECTS=crc32.o deflate_codes.o
 
 default: $(OBJECTS)
-	$(CC) -o ../parse_gz ../src/parse_gz.c $(CFLAGS)
+	$(CC) -o ../parse_gz ../src/parse_gz.c deflate_codes.o $(CFLAGS)
 	$(CC) -o ../libkohnz.so ../src/kohnz.c -FPIC -shared \
 	  $(OBJECTS) \
 	  $(CFLAGS)

@@ -14,7 +14,27 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "deflate_codes.h"
 #include "gzip.h"
+
+struct _bits
+{
+  uint32_t holding;
+  int length;
+};
+
+int read_bits(FILE *in, struct _bits *bits)
+{
+  int ch = getc(in);
+
+  if (ch == EOF) { return -1; }
+
+  bits->holding <<= 8;
+  bits->holding |= deflate_reverse[ch];
+  bits->length += 8;
+
+  return 0;
+}
 
 #if 0
 static uint16_t read_int16(FILE *in)
@@ -117,6 +137,9 @@ int main(int argc, char *argv[])
 {
   FILE *in;
   struct _gzip_header gzip_header;
+  uint8_t compression_type = 3;
+  struct _bits bits;
+  uint32_t code;
 
   if (argc != 2)
   {
@@ -137,22 +160,109 @@ int main(int argc, char *argv[])
     if (print_header(in, &gzip_header) != 0)
     {
       printf("Error: Not a gzip file\n");
+      exit(0);
     }
 
-    uint8_t byte = getc(in);
-    uint8_t t = (byte >> 1) & 0x3;
+    memset(&bits, 0, sizeof(bits));
+
+    read_bits(in, &bits);
+
+    if (bits.holding == EOF)
+    {
+      printf("Error: @ %s:%d\n", __FILE__, __LINE__);
+      exit(1);
+    }
+
+    uint8_t bfinal = (bits.holding >> 7) & 1;
+    compression_type = (bits.holding >> 5) & 3;
 
     const char *type = "error";
 
-    if (t == 0) { type = "uncompressed"; }
-    else if (t == 2) { type = "fixed"; }
-    else if (t == 1) { type = "dynamic"; }
+    switch(compression_type)
+    {
+      case 0:
+        type = "uncompressed";
+        break;
+      case 1:
+        type = "fixed";
+        break;
+      case 2:
+        type = "dynamic";
+        break;
+    }
 
-    printf("byte=%02x\n", byte);
-    printf("  final=%d\n", byte & 1);
+    printf("byte=%02x (%02x)\n", bits.holding, deflate_reverse[bits.holding]);
+    printf("  final=%d\n", bfinal);
     printf("   type=%s\n", type);
+
+    //bits.holding >>= 3;
+    bits.length -= 3;
   }
   while(0);
+
+  if (compression_type == 1)
+  {
+    while(1)
+    {
+//printf("holding=%x length=%d\n", bits.holding, bits.length);
+      // Check for code of 7 bits
+      if (bits.length < 7)
+      {
+        if (read_bits(in, &bits) == -1) { break; }
+      }
+
+      code = bits.holding >> (bits.length - 7);
+      code = code & 0x7f;
+
+      if (code >= 0x00 && code <= 0x17)
+      {
+        bits.length -= 7;
+
+        printf("code=%x (7) data=%d (%02x)\n", code, code + 256, code + 256);
+
+        if (code == 0) { break; }
+
+        continue;
+      }
+
+      // Check for code of 8 bits
+      if (bits.length < 8)
+      {
+        if (read_bits(in, &bits) == -1) { break; }
+      }
+
+      code = bits.holding >> (bits.length - 8);
+      code = code & 0xff;
+
+      if (code >= 0x30 && code <= 0xbf)
+      {
+        bits.length -= 8;
+
+        printf("code=%x (8) data=%d (%02x)\n", code, code - 0x30, code - 0x30);
+        continue;
+      }
+
+      // Check for code of 9 bits
+      if (bits.length < 9)
+      {
+        if (read_bits(in, &bits) == -1) { break; }
+      }
+
+      code = bits.holding >> (bits.length - 9);
+      code = code & 0x1ff;
+
+      if (code >= 0x190 && code <= 0x1ff)
+      {
+        bits.length -= 9;
+
+        printf("code=%x (9) data=%d (%02x)\n", code, code - 0x190, code - 0x190);
+        continue;
+      }
+
+      printf("Error: unknown code %s:%d\n", __FILE__, __LINE__);
+      break;
+    }
+  }
 
   fclose(in);
 
