@@ -18,8 +18,9 @@ int main(int argc, char *argv[])
   }
 
   kohnz_start_static_block(kohnz);
-  kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 8);
-  kohnz_write_static_lz77(kohnz, 4, 4);
+  kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
+  kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
+  //kohnz_write_static_lz77(kohnz, 4, 4);
   kohnz_end_static_block(kohnz);
 
   kohnz_close(kohnz);

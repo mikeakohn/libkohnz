@@ -19,9 +19,16 @@
 #define MODE_STATIC HUFFMAN 1
 #define MODE_DYNAMIC HUFFMAN 2
 
+struct _bits
+{
+  uint32_t holding;
+  int length;
+};
+
 struct _kohnz
 {
   FILE *out;
+  struct _bits bits;
   uint64_t file_size;
   uint32_t crc32;
   int mode;
@@ -39,6 +46,7 @@ int kohnz_end_static_block(struct _kohnz *kohnz);
 int kohnz_end_dynamic_block(struct _kohnz *kohnz);
 int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int length);
 int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length);
+int kohnz_write_static_lz77(struct _kohnz *kohnz, int distance, int length);
 
 #endif
 

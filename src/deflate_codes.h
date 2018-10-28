@@ -16,6 +16,7 @@ extern int deflate_length_codes[29];
 extern int deflate_length_extra_bits[29];
 extern int deflate_distance_codes[30];
 extern int deflate_dist_extra_bits[30];
+extern int deflate_reverse[256];
 
 #endif
 

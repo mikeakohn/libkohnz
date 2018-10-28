@@ -140,8 +140,17 @@ int main(int argc, char *argv[])
     }
 
     uint8_t byte = getc(in);
+    uint8_t t = (byte >> 1) & 0x3;
+
+    const char *type = "error";
+
+    if (t == 0) { type = "uncompressed"; }
+    else if (t == 2) { type = "fixed"; }
+    else if (t == 1) { type = "dynamic"; }
 
     printf("byte=%02x\n", byte);
+    printf("  final=%d\n", byte & 1);
+    printf("   type=%s\n", type);
   }
   while(0);
 

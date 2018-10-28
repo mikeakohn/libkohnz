@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "crc32.h"
+#include "deflate_codes.h"
 #include "kohnz.h"
 
 static int write16(FILE *out, uint32_t num)
@@ -40,6 +41,45 @@ static int write32(FILE *out, uint32_t num)
   fwrite(data, sizeof(data), 1, out);
 
   return 0;
+}
+
+static void write_bits(struct _kohnz *kohnz, uint32_t data, int length)
+{
+  struct _bits *bits = &kohnz->bits;
+
+  bits->holding <<= length;
+  bits->holding |= data;
+  bits->length += length;
+
+  while(bits->length > 8)
+  {
+    const int byte = (bits->holding >> (bits->length - 8)) & 0xff;
+
+    putc(deflate_reverse[byte], kohnz->out);
+    bits->length -= 8;
+  }
+
+#if 0
+  bits->holding |= data << bits->length;
+  bits->length += length;
+
+  while(bits->length > 8)
+  {
+    putc(bits->holding, kohnz->out);
+    bits->holding >>= 8;
+    bits->length -= 8;
+  }
+#endif
+}
+
+static void write_bits_end_block(struct _kohnz *kohnz)
+{
+  struct _bits *bits = &kohnz->bits;
+
+  if (bits->length == 0) { return; }
+
+  uint8_t data = bits->holding & ((1 << bits->length) -1);
+  putc(deflate_reverse[data], kohnz->out);
 }
 
 void kohnz_init()
@@ -119,10 +159,30 @@ int kohnz_start_uncompressed_block(struct _kohnz *kohnz)
 
 int kohnz_start_static_block(struct _kohnz *kohnz)
 {
-  return -1;
+  kohnz->bits.holding = 0;
+  kohnz->bits.length = 0;
+
+  write_bits(kohnz, 1, 1);
+  write_bits(kohnz, 1, 2);
+
+  return 0;
 }
 
 int kohnz_start_dynamic_block(struct _kohnz *kohnz)
+{
+  return -1;
+}
+
+int kohnz_end_static_block(struct _kohnz *kohnz)
+{
+  // Write literal 256 and close block.
+  write_bits(kohnz, 0x00, 7);
+  write_bits_end_block(kohnz);
+
+  return 0;
+}
+
+int kohnz_end_dynamic_block(struct _kohnz *kohnz)
 {
   return -1;
 }
@@ -141,7 +201,37 @@ int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int leng
 
 int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
-  return -1;
+  int n;
+
+  kohnz->crc32 = kohnz_crc32(data, length, kohnz->crc32);
+
+  for (n = 0; n < length; n++)
+  {
+    kohnz->len++;
+
+    if (*data <= 143)
+    {
+      write_bits(kohnz, *data + 0x30, 8);
+    }
+    else if (*data <= 255)
+    {
+      write_bits(kohnz, *data + 0x190, 9);
+    }
+#if 0
+    else if (*data <= 279)
+    {
+      write_bits(kohnz, *data + 0x00, 7);
+    }
+    else if (*data <= 287)
+    {
+      write_bits(kohnz, *data + 0xc0, 8);
+    }
+#endif
+
+    data++;
+  }
+
+  return 0;
 }
 
 int kohnz_write_dynamic(struct _kohnz *kohnz, const uint8_t *data, int length)
