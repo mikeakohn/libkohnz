@@ -40,13 +40,13 @@ void kohnz_init();
 struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *fcomment);
 int kohnz_close(struct _kohnz *kohnz);
 int kohnz_start_uncompressed_block(struct _kohnz *kohnz);
-int kohnz_start_static_block(struct _kohnz *kohnz);
+int kohnz_start_fixed_block(struct _kohnz *kohnz);
 int kohnz_start_dynamic_block(struct _kohnz *kohnz);
-int kohnz_end_static_block(struct _kohnz *kohnz);
+int kohnz_end_fixed_block(struct _kohnz *kohnz);
 int kohnz_end_dynamic_block(struct _kohnz *kohnz);
 int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int length);
 int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length);
-int kohnz_write_static_lz77(struct _kohnz *kohnz, int distance, int length);
+int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length);
 
 #endif
 

@@ -157,7 +157,7 @@ int kohnz_start_uncompressed_block(struct _kohnz *kohnz)
   return 0;
 }
 
-int kohnz_start_static_block(struct _kohnz *kohnz)
+int kohnz_start_fixed_block(struct _kohnz *kohnz)
 {
   kohnz->bits.holding = 0;
   kohnz->bits.length = 0;
@@ -173,7 +173,7 @@ int kohnz_start_dynamic_block(struct _kohnz *kohnz)
   return -1;
 }
 
-int kohnz_end_static_block(struct _kohnz *kohnz)
+int kohnz_end_fixed_block(struct _kohnz *kohnz)
 {
   // Write literal 256 and close block.
   write_bits(kohnz, 0x00, 7);
