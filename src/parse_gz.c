@@ -183,17 +183,17 @@ int main(int argc, char *argv[])
       case 0:
         type = "uncompressed";
         break;
-      case 1:
+      case 2:
         type = "fixed";
         break;
-      case 2:
+      case 1:
         type = "dynamic";
         break;
     }
 
     printf("byte=%02x (%02x)\n", bits.holding, deflate_reverse[bits.holding]);
     printf("  final=%d\n", bfinal);
-    printf("   type=%s\n", type);
+    printf("   type=%s (%d)\n", type, compression_type);
 
     //bits.holding >>= 3;
     bits.length -= 3;

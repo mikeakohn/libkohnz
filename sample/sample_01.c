@@ -23,6 +23,8 @@ int main(int argc, char *argv[])
   //kohnz_write_fixed_lz77(kohnz, 4, 4);
   kohnz_end_fixed_block(kohnz);
 
+  kohnz_build_crc32(kohnz, (const uint8_t *)"MIKEMIKE", 8);
+
   kohnz_close(kohnz);
 
   return 0;

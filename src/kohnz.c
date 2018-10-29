@@ -163,7 +163,7 @@ int kohnz_start_fixed_block(struct _kohnz *kohnz)
   kohnz->bits.length = 0;
 
   write_bits(kohnz, 1, 1);
-  write_bits(kohnz, 1, 2);
+  write_bits(kohnz, 2, 2);
 
   return 0;
 }
@@ -203,12 +203,10 @@ int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
   int n;
 
-  kohnz->crc32 = kohnz_crc32(data, length, kohnz->crc32);
+  //kohnz->crc32 = kohnz_crc32(data, length, kohnz->crc32);
 
   for (n = 0; n < length; n++)
   {
-    kohnz->len++;
-
     if (*data <= 143)
     {
       write_bits(kohnz, *data + 0x30, 8);
@@ -231,11 +229,20 @@ int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
     data++;
   }
 
+  kohnz->file_size += length;
+
   return 0;
 }
 
 int kohnz_write_dynamic(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
   return -1;
+}
+
+int kohnz_build_crc32(struct _kohnz *kohnz, const uint8_t *data, int length)
+{
+  kohnz->crc32 = kohnz_crc32(data, length, kohnz->crc32);
+
+  return 0;
 }
 
