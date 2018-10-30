@@ -95,7 +95,7 @@ void deflate_length_table_init()
   for (n = 0; n < 29; n++)
   {
     code = n + 257;
-    length = deflate_distance_codes[n];
+    length = deflate_length_codes[n];
 
     count = (1 << deflate_length_extra_bits[n]);
 
@@ -117,14 +117,14 @@ void deflate_distance_table_init()
   for (n = 0; n < 30; n++)
   {
     code = n;
-    distance = deflate_length_codes[n];
+    distance = deflate_distance_codes[n];
 
     count = (1 << deflate_distance_extra_bits[n]);
 
     for (i = 0; i < count; i++)
     {
-      deflate_length_table[distance - 1].code = code;
-      deflate_length_table[distance - 1].extra_bits = deflate_distance_extra_bits[n];
+      deflate_distance_table[distance - 1].code = code;
+      deflate_distance_table[distance - 1].extra_bits = deflate_distance_extra_bits[n];
       distance++;
     }
   }
