@@ -259,6 +259,14 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
   code = deflate_length_table[length].code;
   extra_bits = deflate_length_table[length].extra_bits;
 
+#if 0
+printf("length=%d code=%d extra_bits=%d  %x\n",
+  length,
+  code,
+  extra_bits,
+  length - deflate_length_codes[code]);
+#endif
+
   if (code < 256)
   {
     return -3;
@@ -274,24 +282,25 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, length & ((1 << extra_bits) - 1), extra_bits);
+    write_bits(kohnz, length - deflate_length_codes[code], extra_bits);
   }
 
   code = deflate_distance_table[distance - 1].code;
   extra_bits = deflate_distance_table[distance - 1].extra_bits;
 
 #if 0
-  if (code > 29)
-  {
-    return -3;
-  }
+printf("distance=%d code=%d extra_bits=%d  %x\n",
+  distance,
+  code,
+  extra_bits,
+  distance - deflate_distance_codes[code]);
 #endif
 
   write_bits(kohnz, code, 5);
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, distance & ((1 << extra_bits) - 1), extra_bits);
+    write_bits(kohnz, distance - deflate_distance_codes[code], extra_bits);
   }
 
   kohnz->file_size += length;
