@@ -213,11 +213,9 @@ int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int leng
   return 0;
 }
 
-int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
+int kohnz_write_fixed(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
   int n;
-
-  //kohnz->crc32 = kohnz_crc32(data, length, kohnz->crc32);
 
   for (n = 0; n < length; n++)
   {
@@ -227,16 +225,16 @@ int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
     }
     else if (*data <= 255)
     {
-      write_bits(kohnz, *data + 0x190, 9);
+      write_bits(kohnz, (*data - 144) + 0x190, 9);
     }
 #if 0
     else if (*data <= 279)
     {
-      write_bits(kohnz, *data + 0x00, 7);
+      write_bits(kohnz, (*data - 256) + 0x00, 7);
     }
     else if (*data <= 287)
     {
-      write_bits(kohnz, *data + 0xc0, 8);
+      write_bits(kohnz, (*data - 280) + 0xc0, 8);
     }
 #endif
 
@@ -261,17 +259,17 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
   code = deflate_length_table[length].code;
   extra_bits = deflate_length_table[length].extra_bits;
 
-  if (code < 279)
+  if (code < 256)
   {
     return -3;
   }
-  else if (code < 256)
+  else if (code <= 279)
   {
-    write_bits(kohnz, code + 0x00, 7);
+    write_bits(kohnz, (code - 256) + 0x00, 7);
   }
   else if (code <= 287)
   {
-    write_bits(kohnz, code + 0xc0, 8);
+    write_bits(kohnz, (code - 280) + 0xc0, 8);
   }
 
   if (extra_bits != 0)
@@ -282,15 +280,21 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
   code = deflate_distance_table[distance - 1].code;
   extra_bits = deflate_distance_table[distance - 1].extra_bits;
 
+#if 0
   if (code > 29)
   {
     return -3;
   }
+#endif
+
+  write_bits(kohnz, code, 5);
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, length & ((1 << extra_bits) - 1), extra_bits);
+    write_bits(kohnz, distance & ((1 << extra_bits) - 1), extra_bits);
   }
+
+  kohnz->file_size += length;
 
   return 0;
 }

@@ -18,9 +18,9 @@ int main(int argc, char *argv[])
   }
 
   kohnz_start_fixed_block(kohnz, 1);
-  kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
-  kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
-  //kohnz_write_fixed_lz77(kohnz, 4, 4);
+  kohnz_write_fixed(kohnz, (const uint8_t *)"MIKE", 4);
+  //kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
+  kohnz_write_fixed_lz77(kohnz, 4, 4);
   kohnz_end_fixed_block(kohnz);
 
   kohnz_build_crc32(kohnz, (const uint8_t *)"MIKEMIKE", 8);

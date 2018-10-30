@@ -45,7 +45,7 @@ int kohnz_start_dynamic_block(struct _kohnz *kohnz, int final);
 int kohnz_end_fixed_block(struct _kohnz *kohnz);
 int kohnz_end_dynamic_block(struct _kohnz *kohnz);
 int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int length);
-int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length);
+int kohnz_write_fixed(struct _kohnz *kohnz, const uint8_t *data, int length);
 int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length);
 int kohnz_build_crc32(struct _kohnz *kohnz, const uint8_t *data, int length);
 
