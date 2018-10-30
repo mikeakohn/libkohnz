@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  kohnz_start_fixed_block(kohnz);
+  kohnz_start_fixed_block(kohnz, 1);
   kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
   kohnz_write_static(kohnz, (const uint8_t *)"MIKE", 4);
   //kohnz_write_fixed_lz77(kohnz, 4, 4);

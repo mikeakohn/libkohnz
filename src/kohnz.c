@@ -85,6 +85,8 @@ static void write_bits_end_block(struct _kohnz *kohnz)
 void kohnz_init()
 {
   kohnz_crc32_init();
+  deflate_length_table_init();
+  deflate_distance_table_init();
 }
 
 struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *fcomment)
@@ -157,19 +159,31 @@ int kohnz_start_uncompressed_block(struct _kohnz *kohnz)
   return 0;
 }
 
-int kohnz_start_fixed_block(struct _kohnz *kohnz)
+int kohnz_start_fixed_block(struct _kohnz *kohnz, int final)
 {
   kohnz->bits.holding = 0;
   kohnz->bits.length = 0;
 
-  write_bits(kohnz, 1, 1);
+  // final=1 if this is the last block.
+  // type=1, but since the type is recorded forwards, while the rest of
+  //         gzip is backwards, write out a two bit 2 here.
+  write_bits(kohnz, final, 1);
   write_bits(kohnz, 2, 2);
 
   return 0;
 }
 
-int kohnz_start_dynamic_block(struct _kohnz *kohnz)
+int kohnz_start_dynamic_block(struct _kohnz *kohnz, int final)
 {
+  kohnz->bits.holding = 0;
+  kohnz->bits.length = 0;
+
+  // final=1 if this is the last block.
+  // type=2, but since the type is recorded forwards, while the rest of
+  //         gzip is backwards, write out a two bit 1 here.
+  write_bits(kohnz, final, 1);
+  write_bits(kohnz, 1, 2);
+
   return -1;
 }
 
@@ -237,6 +251,48 @@ int kohnz_write_static(struct _kohnz *kohnz, const uint8_t *data, int length)
 int kohnz_write_dynamic(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
   return -1;
+}
+
+int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
+{
+  int code;
+  int extra_bits;
+
+  code = deflate_length_table[length].code;
+  extra_bits = deflate_length_table[length].extra_bits;
+
+  if (code < 279)
+  {
+    return -3;
+  }
+  else if (code < 256)
+  {
+    write_bits(kohnz, code + 0x00, 7);
+  }
+  else if (code <= 287)
+  {
+    write_bits(kohnz, code + 0xc0, 8);
+  }
+
+  if (extra_bits != 0)
+  {
+    write_bits(kohnz, length & (1 << extra_bits) - 1, extra_bits);
+  }
+
+  code = deflate_distance_table[distance - 1].code;
+  extra_bits = deflate_distance_table[distance - 1].extra_bits;
+
+  if (code > 29)
+  {
+    return -3;
+  }
+
+  if (extra_bits != 0)
+  {
+    write_bits(kohnz, length & (1 << extra_bits) - 1, extra_bits);
+  }
+
+  return 0;
 }
 
 int kohnz_build_crc32(struct _kohnz *kohnz, const uint8_t *data, int length)

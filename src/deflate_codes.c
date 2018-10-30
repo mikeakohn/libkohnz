@@ -9,6 +9,12 @@
  *
  */
 
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "deflate_codes.h"
+
 int deflate_length_codes[29] =
 {
     3,   4,   5,   6,   7,  8,  9,  10,
@@ -33,7 +39,7 @@ int deflate_distance_codes[30] =
   4097, 6145, 8193, 12289, 16385, 24577
 };
 
-int deflate_dist_extra_bits[30] =
+int deflate_distance_extra_bits[30] =
 {
    0,  0,  0,  0,  1,  1,  2,  2,
    3,  3,  4,  4,  5,  5,  6,  6,
@@ -76,4 +82,51 @@ int deflate_reverse[256] =
   0x0f, 0x8f, 0x4f, 0xcf, 0x2f, 0xaf, 0x6f, 0xef,
   0x1f, 0x9f, 0x5f, 0xdf, 0x3f, 0xbf, 0x7f, 0xff,
 };
+
+struct _deflate_table deflate_length_table[286];
+struct _deflate_table deflate_distance_table[32768];
+
+void deflate_length_table_init()
+{
+  int n, i, code, length, count;
+
+  memset(deflate_length_table, 0, sizeof(deflate_length_table));
+
+  for (n = 0; n < 29; n++)
+  {
+    code = n + 257;
+    length = deflate_distance_codes[n];
+
+    count = (1 << deflate_length_extra_bits[n]);
+
+    for (i = 0; i < count; i++)
+    {
+      deflate_length_table[length].code = code;
+      deflate_length_table[length].extra_bits = deflate_length_extra_bits[n];
+      length++;
+    }
+  }
+}
+
+void deflate_distance_table_init()
+{
+  int n, i, code, distance, count;
+
+  memset(deflate_distance_table, 0, sizeof(deflate_distance_table));
+
+  for (n = 0; n < 30; n++)
+  {
+    code = n;
+    distance = deflate_length_codes[n];
+
+    count = (1 << deflate_distance_extra_bits[n]);
+
+    for (i = 0; i < count; i++)
+    {
+      deflate_length_table[distance - 1].code = code;
+      deflate_length_table[distance - 1].extra_bits = deflate_distance_extra_bits[n];
+      distance++;
+    }
+  }
+}
 
