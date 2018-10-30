@@ -276,7 +276,7 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, length & (1 << extra_bits) - 1, extra_bits);
+    write_bits(kohnz, length & ((1 << extra_bits) - 1), extra_bits);
   }
 
   code = deflate_distance_table[distance - 1].code;
@@ -289,7 +289,7 @@ int kohnz_write_fixed_lz77(struct _kohnz *kohnz, int distance, int length)
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, length & (1 << extra_bits) - 1, extra_bits);
+    write_bits(kohnz, length & ((1 << extra_bits) - 1), extra_bits);
   }
 
   return 0;
