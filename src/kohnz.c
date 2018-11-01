@@ -51,7 +51,7 @@ static void write_bits(struct _kohnz *kohnz, uint32_t data, int length)
   bits->holding |= data;
   bits->length += length;
 
-  while(bits->length > 8)
+  while(bits->length >= 8)
   {
     const int byte = (bits->holding >> (bits->length - 8)) & 0xff;
 
@@ -264,7 +264,7 @@ printf("length=%d code=%d extra_bits=%d  %x\n",
   length,
   code,
   extra_bits,
-  length - deflate_length_codes[code]);
+  length - deflate_length_codes[code - 257]);
 #endif
 
   if (code < 256)
@@ -282,7 +282,7 @@ printf("length=%d code=%d extra_bits=%d  %x\n",
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, length - deflate_length_codes[code], extra_bits);
+    write_bits(kohnz, length - deflate_length_codes[code - 257], extra_bits);
   }
 
   code = deflate_distance_table[distance - 1].code;

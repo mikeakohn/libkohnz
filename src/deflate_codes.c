@@ -110,21 +110,20 @@ void deflate_length_table_init()
 
 void deflate_distance_table_init()
 {
-  int n, i, code, distance, count;
+  int i, code, distance, count;
 
   memset(deflate_distance_table, 0, sizeof(deflate_distance_table));
 
-  for (n = 0; n < 30; n++)
+  for (code = 0; code < 30; code++)
   {
-    code = n;
-    distance = deflate_distance_codes[n];
+    distance = deflate_distance_codes[code];
 
-    count = (1 << deflate_distance_extra_bits[n]);
+    count = (1 << deflate_distance_extra_bits[code]);
 
     for (i = 0; i < count; i++)
     {
       deflate_distance_table[distance - 1].code = code;
-      deflate_distance_table[distance - 1].extra_bits = deflate_distance_extra_bits[n];
+      deflate_distance_table[distance - 1].extra_bits = deflate_distance_extra_bits[code];
       distance++;
     }
   }
