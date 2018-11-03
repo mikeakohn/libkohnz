@@ -6,10 +6,11 @@
 int main(int argc, char *argv[])
 {
   struct _kohnz *kohnz;
+  uint8_t buffer[32];
 
   kohnz_init();
 
-  kohnz = kohnz_open("mikemike.txt.gz", "mikemike.txt", NULL);
+  kohnz = kohnz_open("mikemike.bin.gz", "mikemike.bin", NULL);
 
   if (kohnz == NULL)
   {
@@ -17,14 +18,15 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  sprintf((char *)buffer, "I'm a %c%c%ctle teapot.", 0xcc, 0xdd, 0xee);
+
   kohnz_start_fixed_block(kohnz, 1);
-  kohnz_write_fixed(kohnz, (const uint8_t *)"I'm a little teapot.", 20);
+  kohnz_write_fixed(kohnz, buffer, 20);
   kohnz_write_fixed_lz77(kohnz, 20, 20);
   kohnz_end_fixed_block(kohnz);
 
-  kohnz_build_crc32(kohnz, (const uint8_t *)"I'm a little teapot.", 20);
-  kohnz_build_crc32(kohnz, (const uint8_t *)"I'm a little teapot.", 20);
-  //kohnz_build_crc32(kohnz, (const uint8_t *)"I'm a little teapot.I'm a little teapot.", 40);
+  kohnz_build_crc32(kohnz, buffer, 20);
+  kohnz_build_crc32(kohnz, buffer, 20);
 
   kohnz_close(kohnz);
 
