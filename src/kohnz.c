@@ -47,15 +47,17 @@ static void write_bits(struct _kohnz *kohnz, uint32_t data, int length)
 {
   struct _bits *bits = &kohnz->bits;
 
-  bits->holding <<= length;
-  bits->holding |= data;
+  bits->holding |= data << bits->length;
   bits->length += length;
 
   while(bits->length >= 8)
   {
-    const int byte = (bits->holding >> (bits->length - 8)) & 0xff;
+    const int byte = bits->holding & 0xff;
 
-    putc(deflate_reverse[byte], kohnz->out);
+    //putc(deflate_reverse[byte], kohnz->out);
+    putc(byte, kohnz->out);
+
+    bits->holding >>= 8;
     bits->length -= 8;
   }
 
@@ -79,7 +81,8 @@ static void write_bits_end_block(struct _kohnz *kohnz)
   if (bits->length == 0) { return; }
 
   uint8_t data = bits->holding & ((1 << bits->length) -1);
-  putc(deflate_reverse[data], kohnz->out);
+  //putc(deflate_reverse[data], kohnz->out);
+  putc(data, kohnz->out);
 }
 
 void kohnz_init()
@@ -142,7 +145,7 @@ struct _kohnz *kohnz_open(const char *filename, const char *fname, const char *f
 
 int kohnz_close(struct _kohnz *kohnz)
 {
-  write32(kohnz->out, kohnz->crc32);
+  write32(kohnz->out, kohnz->crc32 ^ 0xffffffff);
   write32(kohnz->out, kohnz->file_size);
 
   fclose(kohnz->out);
@@ -165,10 +168,9 @@ int kohnz_start_fixed_block(struct _kohnz *kohnz, int final)
   kohnz->bits.length = 0;
 
   // final=1 if this is the last block.
-  // type=1, but since the type is recorded forwards, while the rest of
-  //         gzip is backwards, write out a two bit 2 here.
+  // type=1, fixed 
   write_bits(kohnz, final, 1);
-  write_bits(kohnz, 2, 2);
+  write_bits(kohnz, 1, 2);
 
   return 0;
 }
@@ -179,10 +181,9 @@ int kohnz_start_dynamic_block(struct _kohnz *kohnz, int final)
   kohnz->bits.length = 0;
 
   // final=1 if this is the last block.
-  // type=2, but since the type is recorded forwards, while the rest of
-  //         gzip is backwards, write out a two bit 1 here.
+  // type=2, dynamic
   write_bits(kohnz, final, 1);
-  write_bits(kohnz, 1, 2);
+  write_bits(kohnz, 2, 2);
 
   return -1;
 }
@@ -215,28 +216,23 @@ int kohnz_write_uncompressed(struct _kohnz *kohnz, const uint8_t *data, int leng
 
 int kohnz_write_fixed(struct _kohnz *kohnz, const uint8_t *data, int length)
 {
+  int code;
   int n;
 
   for (n = 0; n < length; n++)
   {
     if (*data <= 143)
     {
-      write_bits(kohnz, *data + 0x30, 8);
+      code = deflate_reverse[*data + 0x30];
+      write_bits(kohnz, code, 8);
     }
     else if (*data <= 255)
     {
-      write_bits(kohnz, (*data - 144) + 0x190, 9);
+      code = (*data - 144) + 0x190;
+      code = (deflate_reverse[code & 0xff] << 1) | ((code >> 8) & 1);
+
+      write_bits(kohnz, code, 9);
     }
-#if 0
-    else if (*data <= 279)
-    {
-      write_bits(kohnz, (*data - 256) + 0x00, 7);
-    }
-    else if (*data <= 287)
-    {
-      write_bits(kohnz, (*data - 280) + 0xc0, 8);
-    }
-#endif
 
     data++;
   }
@@ -273,11 +269,11 @@ printf("length=%d code=%d extra_bits=%d  %x\n",
   }
   else if (code <= 279)
   {
-    write_bits(kohnz, (code - 256) + 0x00, 7);
+    write_bits(kohnz, deflate_reverse[(code - 256) + 0x00] >> 1, 7);
   }
   else if (code <= 287)
   {
-    write_bits(kohnz, (code - 280) + 0xc0, 8);
+    write_bits(kohnz, deflate_reverse[(code - 280) + 0xc0], 8);
   }
 
   if (extra_bits != 0)
@@ -296,7 +292,7 @@ printf("distance=%d code=%d extra_bits=%d  %x\n",
   distance - deflate_distance_codes[code]);
 #endif
 
-  write_bits(kohnz, code, 5);
+  write_bits(kohnz, deflate_reverse[code] >> 3, 5);
 
   if (extra_bits != 0)
   {
