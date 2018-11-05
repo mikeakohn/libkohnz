@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
 {
   struct _kohnz *kohnz;
   uint8_t buffer[32];
+  int n;
 
   kohnz_init();
 
@@ -22,12 +23,15 @@ int main(int argc, char *argv[])
 
   kohnz_start_fixed_block(kohnz, 1);
   kohnz_write_fixed(kohnz, buffer, 20);
-  kohnz_write_fixed_lz77(kohnz, 20, 20);
+  kohnz_build_crc32(kohnz, buffer, 20);
+
+  for (n = 0; n < 3400; n++)
+  {
+    kohnz_write_fixed_lz77(kohnz, 20, 20);
+    kohnz_build_crc32(kohnz, buffer, 20);
+  }
+
   kohnz_end_fixed_block(kohnz);
-
-  kohnz_build_crc32(kohnz, buffer, 20);
-  kohnz_build_crc32(kohnz, buffer, 20);
-
   kohnz_close(kohnz);
 
   return 0;
