@@ -296,7 +296,20 @@ printf("distance=%d code=%d extra_bits=%d  %x\n",
 
   if (extra_bits != 0)
   {
-    write_bits(kohnz, distance - deflate_distance_codes[code], extra_bits);
+    //if (extra_bits <= 8)
+    {
+      write_bits(kohnz, distance - deflate_distance_codes[code], extra_bits);
+    }
+#if 0
+    else
+    {
+      int diff = distance - deflate_distance_codes[code];
+
+printf("code=%d distance=%d distance_code=%d diff=%d\n", code, distance, deflate_distance_codes[code], diff);
+      write_bits(kohnz, diff & 0xff, 8);
+      write_bits(kohnz, diff >> 8, extra_bits - 8);
+    }
+#endif
   }
 
   kohnz->file_size += length;

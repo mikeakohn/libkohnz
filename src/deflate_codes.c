@@ -47,6 +47,13 @@ int deflate_distance_extra_bits[30] =
   11, 11, 12, 12, 13, 13
 };
 
+uint8_t deflate_hclen_map[19] =
+{
+  16, 17, 18, 0,  8, 7,  9, 6,
+  10,  5, 11, 4, 12, 3, 13, 2,
+  14,  1, 15
+};
+
 int deflate_reverse[256] =
 {
   0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0,

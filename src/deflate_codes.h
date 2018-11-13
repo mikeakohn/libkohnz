@@ -24,6 +24,7 @@ extern int deflate_length_codes[29];
 extern int deflate_length_extra_bits[29];
 extern int deflate_distance_codes[30];
 extern int deflate_distance_extra_bits[30];
+extern uint8_t deflate_hclen_map[19];
 extern int deflate_reverse[256];
 extern struct _deflate_table deflate_length_table[286];
 extern struct _deflate_table deflate_distance_table[32768];

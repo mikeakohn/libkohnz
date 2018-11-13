@@ -36,6 +36,24 @@ int read_bits(FILE *in, struct _bits *bits)
   return 0;
 }
 
+int get_bits(FILE *in, struct _bits *bits, int length)
+{
+  int data;
+
+  if (bits->length < length)
+  {
+    // Not good.
+    if (read_bits(in, bits) == -1) { return 0; }
+  }
+
+  data = bits->holding >> (bits->length - length);
+  data = data & ((1 << length) - 1);
+
+  bits->length -= length;
+
+  return data;
+}
+
 static uint16_t read_int16(FILE *in)
 {
   uint32_t n;
@@ -156,7 +174,6 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
     code = 0;
     literal = 0;
     length = 0;
-//printf("holding=%x length=%d\n", bits.holding, bits.length);
 
     do
     {
@@ -256,7 +273,7 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
         length += data;
       }
 
-printf("   -- literal=%d length_code=%d length=%d extra_bits=%d extra_data=%d\n", literal, length_code, length - data, extra_bits, data);
+      // printf("   -- literal=%d length_code=%d length=%d extra_bits=%d extra_data=%d\n", literal, length_code, length - data, extra_bits, data);
 
       data = 0;
 
@@ -297,8 +314,7 @@ printf("   -- literal=%d length_code=%d length=%d extra_bits=%d extra_data=%d\n"
         distance += data;
       }
 
-printf("   -- distance_code=%d distance=%d extra_bits=%d extra_data=%d\n",
-  distance_code, distance - data, extra_bits, data);
+      // printf("   -- distance_code=%d distance=%d extra_bits=%d extra_data=%d\n", distance_code, distance - data, extra_bits, data);
 
       printf("  [ length=%d distance=%d ]\n", length, distance);
     }
@@ -306,6 +322,31 @@ printf("   -- distance_code=%d distance=%d extra_bits=%d extra_data=%d\n",
 
   printf("      crc32=%x\n", read_int32(in));
   printf("file_length=%d\n", read_int32(in));
+
+  return 0;
+}
+
+int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
+{
+  uint8_t hclen[19];
+  int n;
+
+  int hlit_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 257;
+  int hdist_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 1;
+  int hclen_count = (deflate_reverse[get_bits(in, bits, 4)] >> 4) + 4;
+
+  printf("  HLIT: %d\n", hlit_count);
+  printf(" HDIST: %d\n", hdist_count);
+  printf(" HCLEN: %d\n", hclen_count);
+
+  memset(hclen, 0, sizeof(hclen));
+
+  for (n = 0; n < hclen_count; n++)
+  {
+    int length = (deflate_reverse[get_bits(in, bits, 3)] >> 5);
+
+    hclen[deflate_hclen_map[n]] = length;
+  }
 
   return 0;
 }
@@ -390,10 +431,10 @@ int main(int argc, char *argv[])
   else if (compression_type == 1)
   {
     inflate_fixed_huffman(in, &bits);
-
   }
   else if (compression_type == 2)
   {
+    inflate_dynamic_huffman(in, &bits);
   }
 
   fclose(in);

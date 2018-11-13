@@ -31,6 +31,9 @@ int main(int argc, char *argv[])
     kohnz_build_crc32(kohnz, buffer, 20);
   }
 
+  kohnz_write_fixed_lz77(kohnz, 2000, 20);
+  kohnz_build_crc32(kohnz, buffer, 20);
+
   kohnz_end_fixed_block(kohnz);
   kohnz_close(kohnz);
 
