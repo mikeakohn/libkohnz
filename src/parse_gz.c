@@ -17,13 +17,19 @@
 #include "deflate_codes.h"
 #include "gzip.h"
 
+struct _huffman
+{
+  uint8_t length;
+  uint8_t code;
+};
+
 struct _bits
 {
   uint32_t holding;
   int length;
 };
 
-int read_bits(FILE *in, struct _bits *bits)
+static int read_bits(FILE *in, struct _bits *bits)
 {
   int ch = getc(in);
 
@@ -36,7 +42,7 @@ int read_bits(FILE *in, struct _bits *bits)
   return 0;
 }
 
-int get_bits(FILE *in, struct _bits *bits, int length)
+static int get_bits(FILE *in, struct _bits *bits, int length)
 {
   int data;
 
@@ -52,6 +58,21 @@ int get_bits(FILE *in, struct _bits *bits, int length)
   bits->length -= length;
 
   return data;
+}
+
+static void get_binary(char *s, int num, int length)
+{
+  int bit = 1 << (length - 1);
+  int n;
+
+  for (n = 0; n < length; n++)
+  {
+    *s = (num & bit) == 0 ? '0' : '1';
+    bit = bit >> 1;
+    s++;  
+  }
+
+  *s = 0;
 }
 
 static uint16_t read_int16(FILE *in)
@@ -328,8 +349,12 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
 
 int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
 {
-  uint8_t hclen[19];
+  struct _huffman hclen[19];
+  uint8_t bl_count[8];
+  uint8_t next_code[8];
   int n;
+
+  memset(bl_count, 0, sizeof(bl_count));
 
   int hlit_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 257;
   int hdist_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 1;
@@ -344,8 +369,31 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
   for (n = 0; n < hclen_count; n++)
   {
     int length = (deflate_reverse[get_bits(in, bits, 3)] >> 5);
+    //int length = get_bits(in, bits, 3);
 
-    hclen[deflate_hclen_map[n]] = length;
+    hclen[deflate_hclen_map[n]].length = length;
+  }
+
+  for (n = 0; n < 19; n++)
+  {
+    printf("  %d: len=%d\n", n, hclen[n].length);
+
+    if (hclen[n].length != 0) { bl_count[hclen[n].length]++; }
+  } 
+
+  int code = 0;
+
+  for (n = 1; n < 7; n++)
+  {
+    code = (code + bl_count[n - 1]) << 1;
+    next_code[n] = code;
+  }
+
+  for (n = 1; n < 7; n++)
+  {
+    char temp[16];
+    get_binary(temp, next_code[n], n);
+    printf(" %d: bl_count=%d code=%s %d\n", n, bl_count[n], temp, next_code[n]);
   }
 
   return 0;
