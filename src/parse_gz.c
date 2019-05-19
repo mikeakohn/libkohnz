@@ -69,7 +69,7 @@ static void get_binary(char *s, int num, int length)
   {
     *s = (num & bit) == 0 ? '0' : '1';
     bit = bit >> 1;
-    s++;  
+    s++;
   }
 
   *s = 0;
@@ -356,6 +356,9 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
 
   memset(bl_count, 0, sizeof(bl_count));
 
+  // 5 Bits: HLIT, # of Literal/Length codes - 257 (257 - 286)
+  // 5 Bits: HDIST, # of Distance codes - 1        (1 - 32)
+  // 4 Bits: HCLEN, # of Code Length codes - 4     (4 - 19)
   int hlit_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 257;
   int hdist_count = (deflate_reverse[get_bits(in, bits, 5)] >> 3) + 1;
   int hclen_count = (deflate_reverse[get_bits(in, bits, 4)] >> 4) + 4;
@@ -364,36 +367,56 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
   printf(" HDIST: %d\n", hdist_count);
   printf(" HCLEN: %d\n", hclen_count);
 
+  // Build the huffman code table for decoding the HLIT / HDIST
+  // table.
+
   memset(hclen, 0, sizeof(hclen));
 
+  // First, for every code (0 to 19) read from the file the
+  // bit lengths of the codes.
   for (n = 0; n < hclen_count; n++)
   {
     int length = (deflate_reverse[get_bits(in, bits, 3)] >> 5);
-    //int length = get_bits(in, bits, 3);
 
     hclen[deflate_hclen_map[n]].length = length;
   }
 
+  // Create a table that counts how many of each length there is.
   for (n = 0; n < 19; n++)
   {
-    printf("  %d: len=%d\n", n, hclen[n].length);
+    if (hclen[n].length != 0)
+    {
+      //printf("  %d: len=%d\n", n, hclen[n].length);
+      bl_count[hclen[n].length]++;
+    }
+  }
 
-    if (hclen[n].length != 0) { bl_count[hclen[n].length]++; }
-  } 
-
+  // For each code length the code (starts out as 0 for the smallest
+  // code length, which should be 0.  The next code is the last code
+  // plus the count of the last length.
   int code = 0;
 
-  for (n = 1; n < 7; n++)
+  for (n = 1; n <= 7; n++)
   {
     code = (code + bl_count[n - 1]) << 1;
     next_code[n] = code;
   }
 
-  for (n = 1; n < 7; n++)
+  printf(" -- Huffman code coding table --\n");
+
+  // Build the table from the codes.
+  for (n = 0; n < 19; n++)
   {
     char temp[16];
-    get_binary(temp, next_code[n], n);
-    printf(" %d: bl_count=%d code=%s %d\n", n, bl_count[n], temp, next_code[n]);
+
+    if (hclen[n].length != 0)
+    {
+      const int length = hclen[n].length;
+
+      hclen[n].code = next_code[length]++;
+      get_binary(temp, hclen[n].code, length);
+      printf("  %d: len=%d code=%s\n", n, length, temp);
+    }
   }
 
   return 0;
