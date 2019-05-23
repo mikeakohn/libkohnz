@@ -324,3 +324,8 @@ int kohnz_build_crc32(struct _kohnz *kohnz, const uint8_t *data, int length)
   return 0;
 }
 
+uint64_t kohnz_get_offset(struct _kohnz *kohnz)
+{
+  return kohnz->file_size;
+}
+
