@@ -60,7 +60,7 @@ static int get_bits(FILE *in, struct _bits *bits, int length)
   return data;
 }
 
-static void get_binary(char *s, int num, int length)
+static void convert_binary(char *s, int num, int length)
 {
   int bit = 1 << (length - 1);
   int n;
@@ -349,12 +349,15 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
 
 int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
 {
-  struct _huffman hclen[19];
-  uint8_t bl_count[8];
-  uint8_t next_code[8];
-  int n;
+  struct _huffman coding[19];
+  struct _huffman literals[287];
+  uint8_t bl_count[16];
+  uint8_t next_code[16];
+  int code;
+  int n, r;
 
-  memset(bl_count, 0, sizeof(bl_count));
+  memset(coding, 0, sizeof(coding));
+  memset(literals, 0, sizeof(literals));
 
   // 5 Bits: HLIT, # of Literal/Length codes - 257 (257 - 286)
   // 5 Bits: HDIST, # of Distance codes - 1        (1 - 32)
@@ -370,31 +373,33 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
   // Build the huffman code table for decoding the HLIT / HDIST
   // table.
 
-  memset(hclen, 0, sizeof(hclen));
-
   // First, for every code (0 to 19) read from the file the
   // bit lengths of the codes.
   for (n = 0; n < hclen_count; n++)
   {
     int length = (deflate_reverse[get_bits(in, bits, 3)] >> 5);
 
-    hclen[deflate_hclen_map[n]].length = length;
+    coding[deflate_hclen_map[n]].length = length;
   }
+
+  memset(bl_count, 0, sizeof(bl_count));
 
   // Create a table that counts how many of each length there is.
   for (n = 0; n < 19; n++)
   {
-    if (hclen[n].length != 0)
+    if (coding[n].length != 0)
     {
-      //printf("  %d: len=%d\n", n, hclen[n].length);
-      bl_count[hclen[n].length]++;
+      //printf("  %d: len=%d\n", n, coding[n].length);
+      bl_count[coding[n].length]++;
     }
   }
 
   // For each code length the code (starts out as 0 for the smallest
   // code length, which should be 0.  The next code is the last code
   // plus the count of the last length.
-  int code = 0;
+  code = 0;
+
+  memset(next_code, 0, sizeof(next_code));
 
   for (n = 1; n <= 7; n++)
   {
@@ -409,12 +414,170 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
   {
     char temp[16];
 
-    if (hclen[n].length != 0)
+    if (coding[n].length != 0)
     {
-      const int length = hclen[n].length;
+      const int length = coding[n].length;
 
-      hclen[n].code = next_code[length]++;
-      get_binary(temp, hclen[n].code, length);
+      coding[n].code = next_code[length]++;
+      convert_binary(temp, coding[n].code, length);
+      printf("  %d: len=%d code=%s\n", n, length, temp);
+    }
+  }
+
+  bits->holding &= (1 << bits->length) - 1;
+
+  // Get the lengths of all the codes in the literal table.
+  r = 0;
+
+  while (r < hlit_count)
+  {
+    for (n = 0; n < 19; n++)
+    {
+      if (coding[n].length == 0) { continue; }
+
+      // Find value of next code in stream.
+      if (bits->length < coding[n].length)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      const int code = bits->holding >> (bits->length - coding[n].length);
+
+      if (code == coding[n].code)
+      {
+        break;
+      }
+    }
+
+    if (n == 19)
+    {
+      printf("Unknown code for literal %d\n", r);
+      return -1;
+    }
+
+    bits->length -= coding[n].length;
+    bits->holding &= (1 << bits->length) - 1;
+
+    if (n <= 15)
+    {
+      printf("%d literal=%d\n", r, n);
+
+      // For code 0 to 15 the length is simply the code. 
+      literals[r++].length = n;
+    }
+      else
+    if (n == 16)
+    {
+      // For code 16 copy the previous value 3 to 6 times (need 2 more bits).
+
+      if (bits->length < 2)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int previous = literals[r - 1].length;
+      int count = bits->holding >> (bits->length - 2);
+      bits->length -= 2;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 6;
+
+      printf("%d repeat=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        literals[r++].length = previous;
+      }
+    }
+      else
+    if (n == 17)
+    {
+      // For code 17 repeat a code length of 0 for 3 to 10 times
+      // (need 3 more bits).
+
+      if (bits->length < 3)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 3);
+      bits->length -= 3;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 5;
+      count += 3;
+
+      printf("%d clear=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        literals[r++].length = 0;
+      }
+    }
+      else
+    if (n == 18)
+    {
+      // For code 18 repeat a code length of 0 for 11 to 138 times
+      // (need 7 more bits).
+
+      if (bits->length < 7)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 7);
+      bits->length -= 7;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 1;
+      count += 11;
+
+      for (n = 0; n < count; n++)
+      {
+        literals[r++].length = 0;
+      }
+    }
+  }
+
+  printf("r=%d/%d\n", r, hlit_count);
+
+  memset(bl_count, 0, sizeof(bl_count));
+
+  // Create a table that counts how many of each length there is.
+  for (n = 0; n < 287; n++)
+  {
+    if (literals[n].length != 0)
+    {
+      bl_count[literals[n].length]++;
+    }
+  }
+
+  // For each code length the code (starts out as 0 for the smallest
+  // code length, which should be 0.  The next code is the last code
+  // plus the count of the last length.
+  code = 0;
+
+  memset(next_code, 0, sizeof(next_code));
+
+  for (n = 1; n <= 15; n++)
+  {
+    code = (code + bl_count[n - 1]) << 1;
+    next_code[n] = code;
+  }
+
+  printf(" -- Huffman code literal table --\n");
+
+  // Build the literal table from the codes.
+  for (n = 0; n < 286; n++)
+  {
+    char temp[16];
+
+    if (literals[n].length != 0)
+    {
+      const int length = literals[n].length;
+
+      literals[n].code = next_code[length]++;
+      convert_binary(temp, literals[n].code, length);
       printf("  %d: len=%d code=%s\n", n, length, temp);
     }
   }
