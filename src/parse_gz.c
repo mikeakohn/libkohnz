@@ -127,6 +127,7 @@ static int print_header(FILE *in, struct _gzip_header *gzip_header)
   gzip_header->operating_system = getc(in);
 
   flags_text[0] = 0;
+  comp_text[0] = 0;
 
   if ((gzip_header->flags & 0x01) != 0) { strcat(flags_text, " FTEXT"); }
   if ((gzip_header->flags & 0x02) != 0) { strcat(flags_text, " FHCRC"); }
@@ -347,17 +348,187 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
   return 0;
 }
 
+static int build_huffman_table(
+  FILE *in,
+  struct _bits *bits,
+  struct _huffman *coding,
+  struct _huffman *table,
+  int table_length)
+{
+  uint8_t next_code[16];
+  uint8_t bl_count[16];
+  int code, n, r;
+
+  bits->holding &= (1 << bits->length) - 1;
+
+  // Get the lengths of all the codes in the literal table.
+  r = 0;
+
+  while (r < table_length)
+  {
+    for (n = 0; n < 19; n++)
+    {
+      if (coding[n].length == 0) { continue; }
+
+      // Find value of next code in stream.
+      if (bits->length < coding[n].length)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      const int code = bits->holding >> (bits->length - coding[n].length);
+
+      if (code == coding[n].code) { break; }
+    }
+
+    if (n == 19)
+    {
+      printf("Unknown code for literal %d\n", r);
+      return -1;
+    }
+
+    bits->length -= coding[n].length;
+    bits->holding &= (1 << bits->length) - 1;
+
+    if (n <= 15)
+    {
+      printf("%d literal=%d\n", r, n);
+
+      // For code 0 to 15 the length is simply the code. 
+      table[r++].length = n;
+    }
+      else
+    if (n == 16)
+    {
+      // For code 16 copy the previous value 3 to 6 times (need 2 more bits).
+
+      if (bits->length < 2)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int previous = table[r - 1].length;
+      int count = bits->holding >> (bits->length - 2);
+      bits->length -= 2;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 6;
+      count += 3;
+
+      printf("%d repeat=%d for %d times\n", r, previous, count);
+
+      for (n = 0; n < count; n++)
+      {
+        table[r++].length = previous;
+      }
+    }
+      else
+    if (n == 17)
+    {
+      // For code 17 repeat a code length of 0 for 3 to 10 times
+      // (need 3 more bits).
+
+      if (bits->length < 3)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 3);
+      bits->length -= 3;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 5;
+      count += 3;
+
+      printf("%d clear=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        table[r++].length = 0;
+      }
+    }
+      else
+    if (n == 18)
+    {
+      // For code 18 repeat a code length of 0 for 11 to 138 times
+      // (need 7 more bits).
+
+      if (bits->length < 7)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 7);
+      bits->length -= 7;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 1;
+      count += 11;
+
+      printf("%d clear=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        table[r++].length = 0;
+      }
+    }
+  }
+
+  printf("r=%d/%d\n", r, table_length);
+
+  memset(bl_count, 0, sizeof(bl_count));
+
+  // Create a table that counts how many of each length there is.
+  for (n = 0; n < table_length; n++)
+  {
+    if (table[n].length != 0)
+    {
+      if (table[n].length != 0)
+      {
+        bl_count[table[n].length]++;
+      }
+    }
+  }
+
+  // For each code length the code (starts out as 0 for the smallest
+  // code length, which should be 0.  The next code is the last code
+  // plus the count of the last length.
+  code = 0;
+
+  memset(next_code, 0, sizeof(next_code));
+
+  for (n = 1; n <= 15; n++)
+  {
+    code = (code + bl_count[n - 1]) << 1;
+    next_code[n] = code;
+  }
+
+  // Build the huffman table from the codes.
+  for (n = 0; n < table_length; n++)
+  {
+    if (table[n].length != 0)
+    {
+      const int length = table[n].length;
+
+      table[n].code = next_code[length]++;
+    }
+  }
+
+  return 0;
+}
+
 int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
 {
   struct _huffman coding[19];
-  struct _huffman literals[287];
+  struct _huffman literals[286];
+  struct _huffman distances[32];
   uint8_t bl_count[16];
   uint8_t next_code[16];
-  int code;
-  int n, r;
+  int code, n;
 
   memset(coding, 0, sizeof(coding));
   memset(literals, 0, sizeof(literals));
+  memset(distances, 0, sizeof(distances));
 
   // 5 Bits: HLIT, # of Literal/Length codes - 257 (257 - 286)
   // 5 Bits: HDIST, # of Distance codes - 1        (1 - 32)
@@ -424,150 +595,11 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
     }
   }
 
-  bits->holding &= (1 << bits->length) - 1;
-
-  // Get the lengths of all the codes in the literal table.
-  r = 0;
-
-  while (r < hlit_count)
-  {
-    for (n = 0; n < 19; n++)
-    {
-      if (coding[n].length == 0) { continue; }
-
-      // Find value of next code in stream.
-      if (bits->length < coding[n].length)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      const int code = bits->holding >> (bits->length - coding[n].length);
-
-      if (code == coding[n].code)
-      {
-        break;
-      }
-    }
-
-    if (n == 19)
-    {
-      printf("Unknown code for literal %d\n", r);
-      return -1;
-    }
-
-    bits->length -= coding[n].length;
-    bits->holding &= (1 << bits->length) - 1;
-
-    if (n <= 15)
-    {
-      printf("%d literal=%d\n", r, n);
-
-      // For code 0 to 15 the length is simply the code. 
-      literals[r++].length = n;
-    }
-      else
-    if (n == 16)
-    {
-      // For code 16 copy the previous value 3 to 6 times (need 2 more bits).
-
-      if (bits->length < 2)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int previous = literals[r - 1].length;
-      int count = bits->holding >> (bits->length - 2);
-      bits->length -= 2;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 6;
-
-      printf("%d repeat=%d\n", r, count);
-
-      for (n = 0; n < count; n++)
-      {
-        literals[r++].length = previous;
-      }
-    }
-      else
-    if (n == 17)
-    {
-      // For code 17 repeat a code length of 0 for 3 to 10 times
-      // (need 3 more bits).
-
-      if (bits->length < 3)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int count = bits->holding >> (bits->length - 3);
-      bits->length -= 3;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 5;
-      count += 3;
-
-      printf("%d clear=%d\n", r, count);
-
-      for (n = 0; n < count; n++)
-      {
-        literals[r++].length = 0;
-      }
-    }
-      else
-    if (n == 18)
-    {
-      // For code 18 repeat a code length of 0 for 11 to 138 times
-      // (need 7 more bits).
-
-      if (bits->length < 7)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int count = bits->holding >> (bits->length - 7);
-      bits->length -= 7;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 1;
-      count += 11;
-
-      for (n = 0; n < count; n++)
-      {
-        literals[r++].length = 0;
-      }
-    }
-  }
-
-  printf("r=%d/%d\n", r, hlit_count);
-
-  memset(bl_count, 0, sizeof(bl_count));
-
-  // Create a table that counts how many of each length there is.
-  for (n = 0; n < 287; n++)
-  {
-    if (literals[n].length != 0)
-    {
-      bl_count[literals[n].length]++;
-    }
-  }
-
-  // For each code length the code (starts out as 0 for the smallest
-  // code length, which should be 0.  The next code is the last code
-  // plus the count of the last length.
-  code = 0;
-
-  memset(next_code, 0, sizeof(next_code));
-
-  for (n = 1; n <= 15; n++)
-  {
-    code = (code + bl_count[n - 1]) << 1;
-    next_code[n] = code;
-  }
+  build_huffman_table(in, bits, coding, literals, hlit_count);
+  build_huffman_table(in, bits, coding, distances, hdist_count);
 
   printf(" -- Huffman code literal table --\n");
 
-  // Build the literal table from the codes.
   for (n = 0; n < 286; n++)
   {
     char temp[16];
@@ -576,9 +608,187 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
     {
       const int length = literals[n].length;
 
-      literals[n].code = next_code[length]++;
       convert_binary(temp, literals[n].code, length);
       printf("  %d: len=%d code=%s\n", n, length, temp);
+    }
+  }
+
+  printf(" -- Huffman code distance table --\n");
+
+  for (n = 0; n < 32; n++)
+  {
+    char temp[16];
+
+    if (distances[n].length != 0)
+    {
+      const int length = distances[n].length;
+
+      convert_binary(temp, distances[n].code, length);
+      printf("  %d: len=%d code=%s\n", n, length, temp);
+    }
+  }
+
+#if 0
+printf(">> holding=%04x length=%d\n",
+  bits->holding,
+  bits->length);
+#endif
+
+  while(1)
+  {
+    for (n = 0; n < hlit_count; n++)
+    {
+      if (literals[n].length == 0) { continue; }
+
+      // Find value of next code in stream.
+      while (bits->length < literals[n].length)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      if (bits->length < literals[n].length) { break; }
+
+      const int code = bits->holding >> (bits->length - literals[n].length);
+
+      if (code == literals[n].code) { break; }
+    }
+
+#if 0
+printf("holding=%04x length=%d literal=%d\n",
+  bits->holding,
+  bits->length,
+  n);
+#endif
+
+    if (n == hlit_count)
+    {
+      printf("Unknown code for literal %d\n", n);
+      return -1;
+    }
+
+    bits->length -= literals[n].length;
+    bits->holding &= (1 << bits->length) - 1;
+
+    if (n == 256)
+    {
+      printf("DONE\n");
+      break;
+    }
+
+    if (n < 256)
+    {
+      if (n == '\n')
+      {
+        printf("%c", n);
+      }
+        else
+      if (n >= ' ' && n <= 126)
+      {
+        printf("%c", n);
+      }
+        else
+      {
+        printf("<%02x>", n);
+      }
+    }
+      else
+    {
+      int length_code = n - 257;
+      int extra_bits = deflate_length_extra_bits[length_code];
+      int length = deflate_length_codes[length_code];
+      int data;
+
+      data = 0;
+
+      if (extra_bits != 0)
+      {
+        if (bits->length < extra_bits)
+        {
+          if (read_bits(in, bits) == -1) { break; }
+        }
+
+        data = bits->holding >> (bits->length - extra_bits);
+        data = data & ((1 << extra_bits) - 1);
+        bits->length -= extra_bits;
+        bits->holding &= (1 << bits->length) - 1;
+
+        data = deflate_reverse[data] >> (8 - extra_bits);
+
+        length += data;
+      }
+
+      data = 0;
+
+      if (bits->length < 5)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+#if 0
+      int distance_code = bits->holding >> (bits->length - 5);
+      distance_code = distance_code & 0x1f;
+
+      bits->length -= 5;
+#endif
+
+      for (n = 0; n < hdist_count; n++)
+      {
+        if (distances[n].length == 0) { continue; }
+
+        // Find value of next code in stream.
+        while (bits->length < distances[n].length)
+        {
+          if (read_bits(in, bits) == -1) { break; }
+        }
+
+        if (bits->length < distances[n].length) { break; }
+
+        const int code = bits->holding >> (bits->length - distances[n].length);
+
+        if (code == distances[n].code) { break; }
+      }
+
+      if (n >= hdist_count)
+      {
+        printf("Error: distance code doesn't exist\n");
+        break;
+      }
+
+      bits->length -= distances[n].length;
+      bits->holding &= (1 << bits->length) - 1;
+
+      int distance_code = n;
+      int distance = deflate_distance_codes[distance_code];
+      extra_bits = deflate_distance_extra_bits[distance_code];
+
+      if (extra_bits != 0)
+      {
+        if (bits->length < extra_bits)
+        {
+          if (read_bits(in, bits) == -1) { break; }
+        }
+
+        data = bits->holding >> (bits->length - extra_bits);
+        data = data & ((1 << extra_bits) - 1);
+        bits->length -= extra_bits;
+        bits->holding &= (1 << bits->length) - 1;
+
+        if (extra_bits <= 8)
+        {
+          data = deflate_reverse[data] >> (8 - extra_bits);
+        }
+        else
+        {
+          data = deflate_reverse[data & 0xff] << 8 | deflate_reverse[data >> 8];
+          data = data >> (16 - extra_bits);
+        }
+
+        distance += data;
+      }
+
+      // printf("   -- distance_code=%d distance=%d extra_bits=%d extra_data=%d\n", distance_code, distance - data, extra_bits, data);
+
+      printf("  [ length=%d distance=%d ]\n", length, distance);
     }
   }
 
