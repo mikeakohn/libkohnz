@@ -348,133 +348,13 @@ int inflate_fixed_huffman(FILE *in, struct _bits *bits)
   return 0;
 }
 
-static int build_huffman_table(
-  FILE *in,
-  struct _bits *bits,
-  struct _huffman *coding,
+static int build_huffman_values(
   struct _huffman *table,
   int table_length)
 {
-  uint8_t next_code[16];
   uint8_t bl_count[16];
-  int code, n, r;
-
-  bits->holding &= (1 << bits->length) - 1;
-
-  // Get the lengths of all the codes in the literal table.
-  r = 0;
-
-  while (r < table_length)
-  {
-    for (n = 0; n < 19; n++)
-    {
-      if (coding[n].length == 0) { continue; }
-
-      // Find value of next code in stream.
-      if (bits->length < coding[n].length)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      const int code = bits->holding >> (bits->length - coding[n].length);
-
-      if (code == coding[n].code) { break; }
-    }
-
-    if (n == 19)
-    {
-      printf("Unknown code for literal %d\n", r);
-      return -1;
-    }
-
-    bits->length -= coding[n].length;
-    bits->holding &= (1 << bits->length) - 1;
-
-    if (n <= 15)
-    {
-      printf("%d literal=%d\n", r, n);
-
-      // For code 0 to 15 the length is simply the code. 
-      table[r++].length = n;
-    }
-      else
-    if (n == 16)
-    {
-      // For code 16 copy the previous value 3 to 6 times (need 2 more bits).
-
-      if (bits->length < 2)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int previous = table[r - 1].length;
-      int count = bits->holding >> (bits->length - 2);
-      bits->length -= 2;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 6;
-      count += 3;
-
-      printf("%d repeat=%d for %d times\n", r, previous, count);
-
-      for (n = 0; n < count; n++)
-      {
-        table[r++].length = previous;
-      }
-    }
-      else
-    if (n == 17)
-    {
-      // For code 17 repeat a code length of 0 for 3 to 10 times
-      // (need 3 more bits).
-
-      if (bits->length < 3)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int count = bits->holding >> (bits->length - 3);
-      bits->length -= 3;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 5;
-      count += 3;
-
-      printf("%d clear=%d\n", r, count);
-
-      for (n = 0; n < count; n++)
-      {
-        table[r++].length = 0;
-      }
-    }
-      else
-    if (n == 18)
-    {
-      // For code 18 repeat a code length of 0 for 11 to 138 times
-      // (need 7 more bits).
-
-      if (bits->length < 7)
-      {
-        if (read_bits(in, bits) == -1) { break; }
-      }
-
-      int count = bits->holding >> (bits->length - 7);
-      bits->length -= 7;
-      bits->holding &= (1 << bits->length) - 1;
-
-      count = deflate_reverse[count] >> 1;
-      count += 11;
-
-      printf("%d clear=%d\n", r, count);
-
-      for (n = 0; n < count; n++)
-      {
-        table[r++].length = 0;
-      }
-    }
-  }
-
-  printf("r=%d/%d\n", r, table_length);
+  uint8_t next_code[16];
+  int code, n;
 
   memset(bl_count, 0, sizeof(bl_count));
 
@@ -513,6 +393,175 @@ static int build_huffman_table(
       table[n].code = next_code[length]++;
     }
   }
+
+  return 0;
+}
+
+static int build_huffman_table(
+  FILE *in,
+  struct _bits *bits,
+  struct _huffman *coding,
+  struct _huffman *literals,
+  struct _huffman *distances,
+  int hlit_count,
+  int hdist_count)
+{
+  int n, r;
+  int previous = 0;
+  const int table_length = hlit_count + hdist_count;
+
+  bits->holding &= (1 << bits->length) - 1;
+
+  // Get the lengths of all the codes in the literal table.
+  r = 0;
+
+  while (r < table_length)
+  {
+    for (n = 0; n < 19; n++)
+    {
+      if (coding[n].length == 0) { continue; }
+
+      // Find value of next code in stream.
+      if (bits->length < coding[n].length)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      const int code = bits->holding >> (bits->length - coding[n].length);
+
+      if (code == coding[n].code) { break; }
+    }
+
+    if (n == 19)
+    {
+      printf("Unknown code for literal %d\n", r);
+      return -1;
+    }
+
+    bits->length -= coding[n].length;
+    bits->holding &= (1 << bits->length) - 1;
+
+    if (n <= 15)
+    {
+      printf("%d literal=%d\n", r, n);
+
+      previous = n;
+
+      // For code 0 to 15 the length is simply the code. 
+      if (r < hlit_count)
+      {
+        literals[r++].length = n;
+      }
+        else
+      {
+        distances[r - hlit_count].length = n;
+        r++;
+      }
+    }
+      else
+    if (n == 16)
+    {
+      // For code 16 copy the previous value 3 to 6 times (need 2 more bits).
+
+      if (bits->length < 2)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 2);
+      bits->length -= 2;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 6;
+      count += 3;
+
+      printf("%d repeat=%d for %d times\n", r, previous, count);
+
+      for (n = 0; n < count; n++)
+      {
+        if (r < hlit_count)
+        {
+          literals[r++].length = previous;
+        }
+          else
+        {
+          distances[r - hlit_count].length = previous;
+          r++;
+        }
+      }
+    }
+      else
+    if (n == 17)
+    {
+      // For code 17 repeat a code length of 0 for 3 to 10 times
+      // (need 3 more bits).
+
+      if (bits->length < 3)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 3);
+      bits->length -= 3;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 5;
+      count += 3;
+
+      printf("%d clear=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        if (r < hlit_count)
+        {
+          literals[r++].length = 0;
+        }
+          else
+        {
+          distances[r - hlit_count].length = 0;
+          r++;
+        }
+      }
+    }
+      else
+    if (n == 18)
+    {
+      // For code 18 repeat a code length of 0 for 11 to 138 times
+      // (need 7 more bits).
+
+      if (bits->length < 7)
+      {
+        if (read_bits(in, bits) == -1) { break; }
+      }
+
+      int count = bits->holding >> (bits->length - 7);
+      bits->length -= 7;
+      bits->holding &= (1 << bits->length) - 1;
+
+      count = deflate_reverse[count] >> 1;
+      count += 11;
+
+      printf("%d clear=%d\n", r, count);
+
+      for (n = 0; n < count; n++)
+      {
+        if (r < hlit_count)
+        {
+          literals[r++].length = 0;
+        }
+          else
+        {
+          distances[r - hlit_count].length = 0;
+          r++;
+        }
+      }
+    }
+  }
+
+  printf("r=%d/%d\n", r, hlit_count + hdist_count);
+
+  build_huffman_values(literals, hlit_count);
+  build_huffman_values(distances, hdist_count);
 
   return 0;
 }
@@ -595,8 +644,7 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
     }
   }
 
-  build_huffman_table(in, bits, coding, literals, hlit_count);
-  build_huffman_table(in, bits, coding, distances, hdist_count);
+  build_huffman_table(in, bits, coding, literals, distances, hlit_count, hdist_count);
 
   printf(" -- Huffman code literal table --\n");
 
