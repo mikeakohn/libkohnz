@@ -76,4 +76,6 @@ like this:
     <length=15 distance=105>182,
     <length=16 distance=105>35195,
 
-
+I also added a program called parse_gz which can be used to debug
+gzip files, printing out the contents of the files including
+dynamic hufffman tables.
