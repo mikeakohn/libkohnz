@@ -5,7 +5,7 @@
  *     Web: http://www.mikekohn.net/
  * License: GPLv3
  *
- * Copyright 2018 by Michael Kohn
+ * Copyright 2018-2019 by Michael Kohn
  *
  */
 
@@ -162,27 +162,33 @@ int kohnz_start_uncompressed_block(struct _kohnz *kohnz)
   return 0;
 }
 
-int kohnz_start_fixed_block(struct _kohnz *kohnz, int final)
+int kohnz_start_fixed_block(struct _kohnz *kohnz, int is_final)
 {
   kohnz->bits.holding = 0;
   kohnz->bits.length = 0;
 
   // final=1 if this is the last block.
   // type=1, fixed 
-  write_bits(kohnz, final, 1);
+  write_bits(kohnz, is_final == 0 ? 0 : 1, 1);
   write_bits(kohnz, 1, 2);
 
   return 0;
 }
 
-int kohnz_start_dynamic_block(struct _kohnz *kohnz, int final)
+int kohnz_start_dynamic_block(
+  struct _kohnz *kohnz,
+  int is_final,
+  uint16_t *literals_sorted,
+  uint16_t *distances_sorted,
+  int literals_count,
+  int distances_count)
 {
   kohnz->bits.holding = 0;
   kohnz->bits.length = 0;
 
   // final=1 if this is the last block.
   // type=2, dynamic
-  write_bits(kohnz, final, 1);
+  write_bits(kohnz, is_final == 0 ? 0 : 1, 1);
   write_bits(kohnz, 2, 2);
 
   return -1;
@@ -315,6 +321,11 @@ printf("code=%d distance=%d distance_code=%d diff=%d\n", code, distance, deflate
   kohnz->file_size += length;
 
   return 0;
+}
+
+int kohnz_write_dynamic_lz77(struct _kohnz *kohnz, int distance, int length)
+{
+  return -1;
 }
 
 int kohnz_build_crc32(struct _kohnz *kohnz, const uint8_t *data, int length)

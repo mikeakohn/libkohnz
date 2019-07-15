@@ -9,6 +9,7 @@ default:
 	gcc -o sample_01b sample_01b.c -Wall -O3 -lkohnz -L.. -I../src
 	gcc -o sample_01c sample_01c.c -Wall -O3 -lkohnz -L.. -I../src
 	gcc -o sample_01d sample_01d.c -Wall -O3 -lkohnz -L.. -I../src
+	gcc -o sample_02a sample_02a.c -Wall -O3 -lkohnz -L.. -I../src
 	gcc -o build_json build_json.c -Wall -O3 -lkohnz -L.. -I../src
 
 mac:

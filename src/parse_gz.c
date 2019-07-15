@@ -5,7 +5,7 @@
  *     Web: http://www.mikekohn.net/
  * License: GPLv3
  *
- * Copyright 2018 by Michael Kohn
+ * Copyright 2018-2019 by Michael Kohn
  *
  */
 
@@ -16,18 +16,7 @@
 
 #include "deflate_codes.h"
 #include "gzip.h"
-
-struct _huffman
-{
-  uint8_t length;
-  uint16_t code;
-};
-
-struct _bits
-{
-  uint32_t holding;
-  int length;
-};
+#include "kohnz.h"
 
 static int read_bits(FILE *in, struct _bits *bits)
 {
