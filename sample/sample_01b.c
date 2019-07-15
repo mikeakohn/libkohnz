@@ -1,3 +1,16 @@
+/**
+ *  libkohnz
+ *  Author: Michael Kohn
+ *   Email: mike@mikekohn.net
+ *     Web: http://www.mikekohn.net/
+ * License: GPLv3
+ *
+ * Copyright 2018-2019 by Michael Kohn
+ *
+ * An example of creating a .gz with fixed huffman compressed data.
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

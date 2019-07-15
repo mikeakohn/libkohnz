@@ -1,3 +1,16 @@
+/**
+ *  libkohnz
+ *  Author: Michael Kohn
+ *   Email: mike@mikekohn.net
+ *     Web: http://www.mikekohn.net/
+ * License: GPLv3
+ *
+ * Copyright 2018-2019 by Michael Kohn
+ *
+ * An example of creating a .gz with fixed huffman compressed data.
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -17,6 +30,11 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  // Start a compressed block with final block flag set to 1.
+  // Write straight ASCII "MIKE" to the file.
+  // Tell compressor the next 4 bytes will be a distance of 4 bytes backward
+  // and will be a length of 4 bytes (repeating "MIKE" again).
+  // End the compressed block.
   kohnz_start_fixed_block(kohnz, 1);
   kohnz_write_fixed(kohnz, (const uint8_t *)"MIKE", 4);
   kohnz_write_fixed_lz77(kohnz, 4, 4);
