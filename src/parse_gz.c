@@ -20,7 +20,7 @@
 struct _huffman
 {
   uint8_t length;
-  uint8_t code;
+  uint16_t code;
 };
 
 struct _bits
@@ -353,7 +353,7 @@ static int build_huffman_values(
   int table_length)
 {
   uint8_t bl_count[16];
-  uint8_t next_code[16];
+  uint16_t next_code[16];
   int code, n;
 
   memset(bl_count, 0, sizeof(bl_count));
@@ -363,10 +363,7 @@ static int build_huffman_values(
   {
     if (table[n].length != 0)
     {
-      if (table[n].length != 0)
-      {
-        bl_count[table[n].length]++;
-      }
+      bl_count[table[n].length]++;
     }
   }
 
@@ -639,6 +636,8 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
       const int length = coding[n].length;
 
       coding[n].code = next_code[length]++;
+
+      // Debugging: Print value to screen in binary format.
       convert_binary(temp, coding[n].code, length);
       printf("  %d: len=%d code=%s\n", n, length, temp);
     }
@@ -656,6 +655,7 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
     {
       const int length = literals[n].length;
 
+      // Debugging: Print value to screen in binary format.
       convert_binary(temp, literals[n].code, length);
       printf("  %d: len=%d code=%s\n", n, length, temp);
     }
