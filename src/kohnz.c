@@ -55,24 +55,11 @@ static void write_bits(struct _kohnz *kohnz, uint32_t data, int length)
   {
     const int byte = bits->holding & 0xff;
 
-    //putc(deflate_reverse[byte], kohnz->out);
     putc(byte, kohnz->out);
 
     bits->holding >>= 8;
     bits->length -= 8;
   }
-
-#if 0
-  bits->holding |= data << bits->length;
-  bits->length += length;
-
-  while(bits->length > 8)
-  {
-    putc(bits->holding, kohnz->out);
-    bits->holding >>= 8;
-    bits->length -= 8;
-  }
-#endif
 }
 
 static void write_bits_end_block(struct _kohnz *kohnz)
@@ -81,8 +68,8 @@ static void write_bits_end_block(struct _kohnz *kohnz)
 
   if (bits->length == 0) { return; }
 
-  uint8_t data = bits->holding & ((1 << bits->length) -1);
-  //putc(deflate_reverse[data], kohnz->out);
+  uint8_t data = bits->holding & ((1 << bits->length) - 1);
+
   putc(data, kohnz->out);
 }
 
