@@ -15,6 +15,7 @@
 
 #include "crc32.h"
 #include "deflate_codes.h"
+#include "dynamic_huffman.h"
 #include "kohnz.h"
 
 static int write16(FILE *out, uint32_t num)
@@ -191,7 +192,7 @@ int kohnz_start_dynamic_block(
   write_bits(kohnz, is_final == 0 ? 0 : 1, 1);
   write_bits(kohnz, 2, 2);
 
-  return -1;
+  return dynamic_huffman_build(kohnz, literals_sorted, distances_sorted, literals_count, distances_count);
 }
 
 int kohnz_end_fixed_block(struct _kohnz *kohnz)
