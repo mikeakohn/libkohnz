@@ -588,6 +588,13 @@ int inflate_dynamic_huffman(FILE *in, struct _bits *bits)
     coding[deflate_hclen_map[n]].length = length;
   }
 
+#if 0
+  for (n = 0; n < 19; n++)
+  {
+    printf("code=%d, length=%d\n", n, coding[n].length);
+  }
+#endif
+
   memset(bl_count, 0, sizeof(bl_count));
 
   // Create a table that counts how many of each length there is.
