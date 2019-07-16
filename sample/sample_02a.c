@@ -41,7 +41,13 @@ int main(int argc, char *argv[])
     distances_sorted[n] = n;
   }
 
-  kohnz_start_dynamic_block(kohnz, 1, literals_sorted, distances_sorted, sizeof(literals_sorted), sizeof(distances_sorted));
+  kohnz_start_dynamic_block(
+    kohnz,
+    1,
+    literals_sorted,
+    distances_sorted,
+    sizeof(literals_sorted) / sizeof(uint16_t),
+    sizeof(distances_sorted) / sizeof(uint16_t));
   kohnz_write_dynamic(kohnz, buffer, length);
   kohnz_build_crc32(kohnz, buffer, length);
 
